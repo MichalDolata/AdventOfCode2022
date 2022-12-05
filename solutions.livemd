@@ -1,0 +1,212 @@
+# Advent of Code
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+
+stream_for_day! = fn day ->
+  unless File.exists?("AdventOfCode/input/#{day}.txt") do
+    content =
+      Req.get!("https://adventofcode.com/2022/day/#{day}/input",
+        headers: [{"cookie", "session=#{System.fetch_env!("LB_SESSION")}"}]
+      ).body
+
+    File.write!("AdventOfCode/input/#{day}.txt", content)
+  end
+
+  File.stream!("AdventOfCode/input/#{day}.txt")
+end
+```
+
+## Day 1
+
+```elixir
+# Part 1
+stream_for_day!.(1)
+|> Enum.reduce({0, 0}, fn
+  "\n", {current_max, current} ->
+    {max(current_max, current), 0}
+
+  value, {current_max, current} ->
+    {current_max, current + (String.trim(value) |> String.to_integer())}
+end)
+|> then(fn {current_max, current} -> max(current_max, current) end)
+```
+
+```elixir
+# Part 2
+stream_for_day!.(1)
+|> Enum.reduce({[0, 0, 0], 0}, fn
+  "\n", {current_max, current} ->
+    {[current | current_max] |> Enum.sort(:desc) |> Enum.take(3), 0}
+
+  value, {current_max, current} ->
+    {current_max, current + (String.trim(value) |> String.to_integer())}
+end)
+|> then(fn {current_max, current} ->
+  [current | current_max] |> Enum.sort(:desc) |> Enum.take(3)
+end)
+|> Enum.sum()
+```
+
+## Day 2
+
+```elixir
+# Part 1
+opponent_mapping = %{
+  "A" => :rock,
+  "B" => :paper,
+  "C" => :scissors
+}
+
+my_mapping = %{
+  "X" => :rock,
+  "Y" => :paper,
+  "Z" => :scissors
+}
+
+points = %{
+  rock: 1,
+  paper: 2,
+  scissors: 3,
+  draw: 3,
+  opponent_win: 0,
+  my_win: 6
+}
+
+result = fn
+  same_move, same_move -> :draw
+  :rock, :scissors -> :opponent_win
+  :paper, :rock -> :opponent_win
+  :scissors, :paper -> :opponent_win
+  _, _ -> :my_win
+end
+
+stream_for_day!.(2)
+|> Enum.reduce(0, fn line, acc ->
+  [opponent_move, my_move] = String.trim(line) |> String.split(" ")
+
+  acc + points[result.(opponent_mapping[opponent_move], my_mapping[my_move])] +
+    points[my_mapping[my_move]]
+end)
+```
+
+```elixir
+# Part 2
+opponent_mapping = %{
+  "A" => :rock,
+  "B" => :paper,
+  "C" => :scissors
+}
+
+my_mapping = %{
+  "X" => :lose,
+  "Y" => :draw,
+  "Z" => :win
+}
+
+points = %{
+  rock: 1,
+  paper: 2,
+  scissors: 3,
+  draw: 3,
+  lose: 0,
+  win: 6
+}
+
+move_mapping = %{
+  rock: %{win: :paper, lose: :scissors},
+  paper: %{win: :scissors, lose: :rock},
+  scissors: %{win: :rock, lose: :paper}
+}
+
+stream_for_day!.(2)
+|> Enum.reduce(0, fn line, acc ->
+  [opponent_move_raw, my_result_raw] = String.trim(line) |> String.split(" ")
+  my_result = my_mapping[my_result_raw]
+  opponent_move = opponent_mapping[opponent_move_raw]
+  acc + points[my_result] + points[move_mapping[opponent_move][my_result] || opponent_move]
+end)
+```
+
+## Day 3
+
+```elixir
+# Part 1
+stream_for_day!.(3)
+|> Enum.reduce(0, fn line, acc ->
+  line = String.trim(line)
+
+  {part_1, part_2} = String.split_at(line, div(String.length(line), 2))
+  part_1 = String.splitter(part_1, "", trim: true)
+  part_2 = String.splitter(part_2, "", trim: true)
+
+  intersection = MapSet.intersection(MapSet.new(part_1), MapSet.new(part_2))
+
+  [element] = MapSet.to_list(intersection)
+  [element] = String.to_charlist(element)
+
+  if element >= ?a do
+    element - ?a + 1
+  else
+    element - ?A + 27
+  end
+  |> Kernel.+(acc)
+end)
+```
+
+```elixir
+# Part 2
+stream_for_day!.(3)
+|> Stream.map(&String.trim/1)
+|> Stream.chunk_every(3)
+|> Enum.reduce(0, fn [elf1, elf2, elf3], acc ->
+  elf1_items = elf1 |> String.splitter("", trim: true) |> MapSet.new()
+  elf2_items = elf2 |> String.splitter("", trim: true) |> MapSet.new()
+  elf3_items = elf3 |> String.splitter("", trim: true) |> MapSet.new()
+
+  intersection =
+    MapSet.intersection(MapSet.new(elf1_items), MapSet.new(elf2_items))
+    |> MapSet.intersection(elf3_items)
+
+  [element] = MapSet.to_list(intersection)
+  [element] = String.to_charlist(element)
+
+  if element >= ?a do
+    element - ?a + 1
+  else
+    element - ?A + 27
+  end
+  |> Kernel.+(acc)
+end)
+```
+
+## Day 4
+
+```elixir
+# Part 1
+stream_for_day!.(4)
+|> Stream.map(&String.trim/1)
+|> Enum.count(fn pair ->
+  [elf1, elf2] = String.split(pair, ",")
+  [elf1_start, elf1_end] = String.split(elf1, "-") |> Enum.map(&String.to_integer/1)
+  [elf2_start, elf2_end] = String.split(elf2, "-") |> Enum.map(&String.to_integer/1)
+
+  (elf1_start <= elf2_start and elf1_end >= elf2_end) or
+    (elf2_start <= elf1_start and elf2_end >= elf1_end)
+end)
+```
+
+```elixir
+# Part 2
+stream_for_day!.(4)
+|> Stream.map(&String.trim/1)
+|> Enum.count(fn pair ->
+  [elf1, elf2] = String.split(pair, ",")
+  [elf1_start, elf1_end] = String.split(elf1, "-") |> Enum.map(&String.to_integer/1)
+  [elf2_start, elf2_end] = String.split(elf2, "-") |> Enum.map(&String.to_integer/1)
+
+  not Range.disjoint?(elf1_start..elf1_end, elf2_start..elf2_end)
+end)
+```
