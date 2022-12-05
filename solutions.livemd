@@ -210,3 +210,105 @@ stream_for_day!.(4)
   not Range.disjoint?(elf1_start..elf1_end, elf2_start..elf2_end)
 end)
 ```
+
+## Day 5
+
+```elixir
+# Part 1
+
+{tower, moves} =
+  stream_for_day!.(5)
+  |> Stream.map(&String.trim(&1, "\n"))
+  |> Stream.reject(&(&1 == ""))
+  |> Enum.split_while(&(not String.starts_with?(&1, "move")))
+
+columns =
+  tower
+  |> Enum.drop(-1)
+  |> Enum.reduce(%{}, fn line, acc ->
+    line
+    |> String.to_charlist()
+    |> Enum.chunk_every(4)
+    |> Enum.map(&to_string/1)
+    |> Enum.map(&String.replace(&1, ~r{\[|\]| }, "", global: true))
+    |> Enum.with_index(1)
+    |> Enum.reduce(acc, fn
+      {"", _index}, acc ->
+        acc
+
+      {column, index}, acc ->
+        Map.update(acc, index, [column], &[column | &1])
+    end)
+  end)
+
+moves
+|> Enum.map(fn line ->
+  [_, number_of_crates, _, from, _, to] = line |> String.split(" ")
+  [number_of_crates, from, to] |> Enum.map(&String.to_integer/1)
+end)
+|> Enum.reduce(columns, fn [number_of_crates, from, to], columns ->
+  crates_to_move = Enum.take(columns[from], -number_of_crates)
+
+  columns
+  |> Map.update!(from, fn column ->
+    column |> Enum.drop(-number_of_crates)
+  end)
+  |> Map.update!(to, fn column ->
+    column ++ Enum.reverse(crates_to_move)
+  end)
+end)
+|> Enum.map(fn {_, column} ->
+  List.last(column)
+end)
+|> Enum.join()
+```
+
+```elixir
+# Part 2
+
+{tower, moves} =
+  stream_for_day!.(5)
+  |> Stream.map(&String.trim(&1, "\n"))
+  |> Stream.reject(&(&1 == ""))
+  |> Enum.split_while(&(not String.starts_with?(&1, "move")))
+
+columns =
+  tower
+  |> Enum.drop(-1)
+  |> Enum.reduce(%{}, fn line, acc ->
+    line
+    |> String.to_charlist()
+    |> Enum.chunk_every(4)
+    |> Enum.map(&to_string/1)
+    |> Enum.map(&String.replace(&1, ~r{\[|\]| }, "", global: true))
+    |> Enum.with_index(1)
+    |> Enum.reduce(acc, fn
+      {"", _index}, acc ->
+        acc
+
+      {column, index}, acc ->
+        Map.update(acc, index, [column], &[column | &1])
+    end)
+  end)
+
+moves
+|> Enum.map(fn line ->
+  [_, number_of_crates, _, from, _, to] = line |> String.split(" ")
+  [number_of_crates, from, to] |> Enum.map(&String.to_integer/1)
+end)
+|> Enum.reduce(columns, fn [number_of_crates, from, to], columns ->
+  crates_to_move = Enum.take(columns[from], -number_of_crates)
+
+  columns
+  |> Map.update!(from, fn column ->
+    column |> Enum.drop(-number_of_crates)
+  end)
+  |> Map.update!(to, fn column ->
+    column ++ crates_to_move
+  end)
+end)
+|> Enum.map(fn {_, column} ->
+  List.last(column)
+end)
+|> Enum.join()
+```
