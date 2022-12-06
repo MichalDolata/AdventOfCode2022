@@ -230,6 +230,7 @@ columns =
     |> String.to_charlist()
     |> Enum.chunk_every(4)
     |> Enum.map(&to_string/1)
+    |> IO.inspect()
     |> Enum.map(&String.replace(&1, ~r{\[|\]| }, "", global: true))
     |> Enum.with_index(1)
     |> Enum.reduce(acc, fn
@@ -311,4 +312,45 @@ end)
   List.last(column)
 end)
 |> Enum.join()
+```
+
+## Day 6
+
+```elixir
+# Part 1
+check_if_continue = fn list, index ->
+  if list == Enum.uniq(list) do
+    {:halt, index}
+  else
+    {:cont, list}
+  end
+end
+
+first_n_different_characters_at = fn n ->
+  stream_for_day!.(6)
+  |> Enum.fetch!(0)
+  |> String.split("", trim: true)
+  |> Enum.with_index(1)
+  |> Enum.reduce_while([], fn
+    {elem, _index}, acc when length(acc) < n - 1 ->
+      acc = acc ++ [elem]
+
+      {:cont, acc}
+
+    {elem, index}, acc when length(acc) == n - 1 ->
+      acc = acc ++ [elem]
+      check_if_continue.(acc, index)
+
+    {elem, index}, acc ->
+      acc = Enum.drop(acc, 1) ++ [elem]
+      check_if_continue.(acc, index)
+  end)
+end
+
+first_n_different_characters_at.(4)
+```
+
+```elixir
+# Part 2
+first_n_different_characters_at.(14)
 ```
