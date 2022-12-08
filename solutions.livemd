@@ -354,3 +354,89 @@ first_n_different_characters_at.(4)
 # Part 2
 first_n_different_characters_at.(14)
 ```
+
+## Day 7
+
+```elixir
+defmodule Day7 do
+  def generate_tree(input, directory_content \\ %{}) do
+    case List.pop_at(input, 0) do
+      {"$ ls", input} ->
+        {ls_result, input} = Enum.split_while(input, &(not String.starts_with?(&1, "$")))
+
+        directory_content =
+          Map.new(ls_result, fn
+            "dir " <> dir_name ->
+              {dir_name, %{type: :dir, size: nil, children: %{}}}
+
+            file_line ->
+              [file_size, file_name] = String.split(file_line, " ")
+              {file_name, %{type: :file, size: String.to_integer(file_size)}}
+          end)
+
+        generate_tree(input, directory_content)
+
+      {"$ cd ..", input} ->
+        {input, directory_content}
+
+      {"$ cd " <> directory_to_change, input} ->
+        {input, children_content} = Day7.generate_tree(input)
+
+        generate_tree(
+          input,
+          put_in(directory_content, [directory_to_change, :children], children_content)
+        )
+
+      _ ->
+        {input, directory_content}
+    end
+  end
+
+  def calculate_dir_sizes(tree) do
+    Enum.reduce(tree, {0, []}, fn
+      {name, %{type: :dir} = dir}, {size, acc} ->
+        {add_size, add_acc} = calculate_dir_sizes(dir.children)
+
+        if add_size <= 100_000 do
+          {add_size + size, [{name, add_size}] ++ acc ++ add_acc}
+        else
+          {add_size + size, acc ++ add_acc}
+        end
+
+      {_name, %{size: add_size}}, {size, acc} ->
+        {add_size + size, acc}
+    end)
+  end
+
+  def calculate_all_dir_sizes(tree) do
+    Enum.reduce(tree, {0, []}, fn
+      {name, %{type: :dir} = dir}, {size, acc} ->
+        {add_size, add_acc} = calculate_all_dir_sizes(dir.children)
+        {add_size + size, [{name, add_size}] ++ acc ++ add_acc}
+
+      {_name, %{size: add_size}}, {size, acc} ->
+        {add_size + size, acc}
+    end)
+  end
+end
+
+input = stream_for_day!.(7) |> Stream.map(&String.trim/1) |> Enum.to_list()
+{"$ cd /", input} = List.pop_at(input, 0)
+
+{_, tree} = Day7.generate_tree(input)
+{space_taken, to_sum} = Day7.calculate_dir_sizes(tree)
+
+to_sum |> Enum.map(fn {_name, size} -> size end) |> Enum.sum()
+```
+
+```elixir
+free_space = 70_000_000 - space_taken
+need_to_delete = 30_000_000 - free_space
+
+{_, to_sort} = Day7.calculate_all_dir_sizes(tree)
+
+to_sort
+|> Enum.sort_by(fn {_name, size} -> size end)
+|> Enum.find(fn {_name, size} -> size >= need_to_delete end)
+|> elem(1)
+```
