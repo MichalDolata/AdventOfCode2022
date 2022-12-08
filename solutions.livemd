@@ -440,3 +440,108 @@ to_sort
 |> Enum.find(fn {_name, size} -> size >= need_to_delete end)
 |> elem(1)
 ```
+
+## Day 8
+
+```elixir
+# Part 1
+rows = []
+columns = []
+
+{rows, columns} =
+  stream_for_day!.(8)
+  |> Stream.map(&String.trim/1)
+  |> Enum.reduce({rows, columns}, fn line, {rows, columns} ->
+    row = String.split(line, "", trim: true) |> Enum.map(&String.to_integer/1)
+    number_of_rows = length(rows)
+    row_length = length(row)
+    row = row |> Enum.with_index(number_of_rows * row_length + 1)
+
+    columns =
+      if columns == [] do
+        row |> Enum.map(&List.wrap/1)
+      else
+        Enum.zip_reduce([columns, row], [], fn [column, tree], acc ->
+          [[tree | column] | acc]
+        end)
+        |> Enum.reverse()
+      end
+
+    {[row | rows], columns}
+  end)
+
+reduce_list = fn {height, id}, {max_height, visible_trees} ->
+  if height > max_height do
+    {height, MapSet.put(visible_trees, id)}
+  else
+    {max_height, visible_trees}
+  end
+end
+
+set1 =
+  Enum.reduce(rows, MapSet.new(), fn row, acc ->
+    set1 = row |> Enum.reduce({-1, MapSet.new()}, reduce_list) |> elem(1)
+    set2 = row |> Enum.reverse() |> Enum.reduce({-1, MapSet.new()}, reduce_list) |> elem(1)
+    MapSet.union(set1, set2) |> MapSet.union(acc)
+  end)
+
+set2 =
+  Enum.reduce(columns, MapSet.new(), fn column, acc ->
+    set1 = column |> Enum.reduce({-1, MapSet.new()}, reduce_list) |> elem(1)
+    set2 = column |> Enum.reverse() |> Enum.reduce({-1, MapSet.new()}, reduce_list) |> elem(1)
+    MapSet.union(set1, set2) |> MapSet.union(acc)
+  end)
+
+[List.first(rows), List.last(rows), List.first(columns), List.last(columns)]
+|> List.flatten()
+|> Enum.map(&elem(&1, 1))
+|> MapSet.new()
+|> MapSet.union(set1)
+|> MapSet.union(set2)
+|> MapSet.size()
+```
+
+```elixir
+# Part 2
+map =
+  stream_for_day!.(8)
+  |> Stream.map(&String.trim/1)
+  |> Enum.reduce(%{}, fn line, map ->
+    row =
+      String.split(line, "", trim: true)
+      |> Enum.map(&String.to_integer/1)
+      |> Enum.with_index(fn element, index -> {index, element} end)
+      |> Map.new()
+
+    number_of_rows = map_size(map)
+
+    Map.put(map, number_of_rows, row)
+  end)
+
+for x <- 0..98, y <- 0..98 do
+  house_height = map[x][y]
+
+  left =
+    Enum.reduce_while((x - 1)..0//-1, 0, fn x, acc ->
+      if map[x][y] < house_height, do: {:cont, acc + 1}, else: {:halt, acc + 1}
+    end)
+
+  right =
+    Enum.reduce_while((x + 1)..98, 0, fn x, acc ->
+      if map[x][y] < house_height, do: {:cont, acc + 1}, else: {:halt, acc + 1}
+    end)
+
+  top =
+    Enum.reduce_while((y - 1)..0//-1, 0, fn y, acc ->
+      if map[x][y] < house_height, do: {:cont, acc + 1}, else: {:halt, acc + 1}
+    end)
+
+  bottom =
+    Enum.reduce_while((y + 1)..98, 0, fn y, acc ->
+      if map[x][y] < house_height, do: {:cont, acc + 1}, else: {:halt, acc + 1}
+    end)
+
+  left * right * top * bottom
+end
+|> Enum.max()
+```
