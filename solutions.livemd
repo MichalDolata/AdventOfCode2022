@@ -545,3 +545,162 @@ for x <- 0..98, y <- 0..98 do
 end
 |> Enum.max()
 ```
+
+## Day 9
+
+```elixir
+# Part 1
+defmodule Day9 do
+  def step([line | rest_lines], head_position, tail_position, all_tail_positions) do
+    [direction, steps] = String.split(line, " ")
+
+    move_shift = %{
+      "U" => {0, 1},
+      "D" => {0, -1},
+      "R" => {1, 0},
+      "L" => {-1, 0}
+    }
+
+    {head_position, tail_position, all_tail_positions} =
+      move(
+        String.to_integer(steps),
+        move_shift[direction],
+        head_position,
+        tail_position,
+        all_tail_positions
+      )
+
+    step(rest_lines, head_position, tail_position, all_tail_positions)
+  end
+
+  def step([], _, _, all_tail_positions), do: all_tail_positions
+
+  defp move(0, _move_shift, head_position, tail_position, all_tail_positions) do
+    {head_position, tail_position, all_tail_positions}
+  end
+
+  defp move(steps, move_shift, head_position, tail_position, all_tail_positions) do
+    head_position = move_head(head_position, move_shift)
+    tail_position = move_tail(tail_position, head_position)
+
+    move(
+      steps - 1,
+      move_shift,
+      head_position,
+      tail_position,
+      MapSet.put(all_tail_positions, tail_position)
+    )
+  end
+
+  defp move_head({head_x_position, head_y_position}, {shift_x, shift_y}),
+    do: {head_x_position + shift_x, head_y_position + shift_y}
+
+  defp move_tail({tail_x, tail_y}, {head_x, tail_y}) when head_x - tail_x >= 2,
+    do: {head_x - 1, tail_y}
+
+  defp move_tail({tail_x, tail_y}, {head_x, tail_y}) when head_x - tail_x <= -2,
+    do: {head_x + 1, tail_y}
+
+  defp move_tail({tail_x, tail_y}, {tail_x, head_y}) when head_y - tail_y >= 2,
+    do: {tail_x, head_y - 1}
+
+  defp move_tail({tail_x, tail_y}, {tail_x, head_y}) when head_y - tail_y <= -2,
+    do: {tail_x, head_y + 1}
+
+  defp move_tail({tail_x, tail_y}, {head_x, head_y})
+       when abs(tail_x - head_x) > 1 or abs(tail_y - head_y) > 1 do
+    cond do
+      tail_y - head_y == 2 -> {head_x, head_y + 1}
+      tail_y - head_y == -2 -> {head_x, head_y - 1}
+      tail_x - head_x == 2 -> {head_x + 1, head_y}
+      tail_x - head_x == -2 -> {head_x - 1, head_y}
+    end
+  end
+
+  defp move_tail(tail_position, _head_position), do: tail_position
+end
+
+stream_for_day!.(9)
+|> Stream.map(&String.trim/1)
+|> Enum.to_list()
+|> Day9.step({0, 0}, {0, 0}, MapSet.new([{0, 0}]))
+|> MapSet.size()
+```
+
+```elixir
+# Part 2
+defmodule Day9 do
+  def step([line | rest_lines], positions, all_9_positions) do
+    [direction, steps] = String.split(line, " ")
+
+    move_shift = %{
+      "U" => {0, 1},
+      "D" => {0, -1},
+      "R" => {1, 0},
+      "L" => {-1, 0}
+    }
+
+    {positions, all_9_positions} =
+      move(String.to_integer(steps), move_shift[direction], positions, all_9_positions)
+
+    step(rest_lines, positions, all_9_positions)
+  end
+
+  def step([], _positions, all_9_positions), do: all_9_positions
+
+  defp move(0, _move_shift, positions, all_9_positions) do
+    {positions, all_9_positions}
+  end
+
+  defp move(steps, move_shift, positions, all_9_positions) do
+    positions = Map.put(positions, 0, move_head(positions[0], move_shift))
+
+    positions =
+      Enum.reduce(1..9, positions, fn i, positions ->
+        Map.put(positions, i, move_tail(positions[i], positions[i - 1]))
+      end)
+
+    all_9_positions = MapSet.put(all_9_positions, positions[9])
+    move(steps - 1, move_shift, positions, all_9_positions)
+  end
+
+  defp move_head({head_x_position, head_y_position}, {shift_x, shift_y}),
+    do: {head_x_position + shift_x, head_y_position + shift_y}
+
+  defp move_tail({tail_x, tail_y}, {head_x, tail_y}) when head_x - tail_x >= 2,
+    do: {tail_x + 1, tail_y}
+
+  defp move_tail({tail_x, tail_y}, {head_x, tail_y}) when head_x - tail_x <= -2,
+    do: {tail_x - 1, tail_y}
+
+  defp move_tail({tail_x, tail_y}, {tail_x, head_y}) when head_y - tail_y >= 2,
+    do: {tail_x, tail_y + 1}
+
+  defp move_tail({tail_x, tail_y}, {tail_x, head_y}) when head_y - tail_y <= -2,
+    do: {tail_x, tail_y - 1}
+
+  defp move_tail({tail_x, tail_y}, {head_x, head_y})
+       when abs(tail_x - head_x) + abs(tail_y - head_y) >= 3 do
+    y = sign(head_y - tail_y)
+    x = sign(head_x - tail_x)
+
+    {tail_x + x, tail_y + y}
+  end
+
+  defp move_tail(tail_position, _head_position), do: tail_position
+
+  defp sign(number) when number >= 0, do: 1
+  defp sign(_number), do: -1
+end
+
+start_positions =
+  for i <- 0..9, into: %{} do
+    {i, {0, 0}}
+  end
+
+stream_for_day!.(9)
+|> Stream.map(&String.trim/1)
+|> Enum.to_list()
+|> Day9.step(start_positions, MapSet.new([{0, 0}]))
+|> MapSet.size()
+```
