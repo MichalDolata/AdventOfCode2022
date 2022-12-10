@@ -704,3 +704,78 @@ stream_for_day!.(9)
 |> Day9.step(start_positions, MapSet.new([{0, 0}]))
 |> MapSet.size()
 ```
+
+## Day 10
+
+```elixir
+# Part 1
+stream_for_day!.(10)
+|> Stream.map(&String.trim/1)
+|> Enum.reduce({1, 0, 0}, fn instruction, {register_value, cycle, sum} ->
+  {cycle_start, cycle_end, end_value} =
+    case instruction do
+      "noop" ->
+        {cycle + 1, cycle + 1, register_value}
+
+      "addx " <> value ->
+        {cycle + 1, cycle + 2, register_value + String.to_integer(value)}
+    end
+
+  sum =
+    [20, 60, 100, 140, 180, 220]
+    |> Enum.find(fn x ->
+      x in cycle_start..cycle_end
+    end)
+    |> case do
+      nil ->
+        sum
+
+      x ->
+        sum + x * register_value
+    end
+
+  {end_value, cycle_end, sum}
+end)
+```
+
+```elixir
+# Part 2
+{lit_pixels, _, _} =
+  stream_for_day!.(10)
+  |> Stream.map(&String.trim/1)
+  |> Enum.reduce({%{}, 1, 0}, fn instruction, {lit_pixels, register_value, cycle} ->
+    {cycle_start, cycle_end, end_value} =
+      case instruction do
+        "noop" ->
+          {cycle, cycle + 1, register_value}
+
+        "addx " <> value ->
+          {cycle + 1, cycle + 2, register_value + String.to_integer(value)}
+      end
+
+    lit_pixels =
+      cycle_start..cycle_end
+      |> Enum.reduce(lit_pixels, fn cycle, lit_pixels ->
+        if Integer.mod(cycle - 1, 40) in (register_value - 1)..(register_value + 1) do
+          Map.put(lit_pixels, cycle, "#")
+        else
+          lit_pixels
+        end
+      end)
+
+    {lit_pixels, end_value, cycle_end}
+  end)
+
+1..240
+|> Enum.map(fn i ->
+  if Map.has_key?(lit_pixels, i) do
+    "#"
+  else
+    "."
+  end
+end)
+|> Enum.chunk_every(40)
+|> Enum.map(&Enum.join(&1, ""))
+|> Enum.join("\n")
+|> IO.puts()
+```
