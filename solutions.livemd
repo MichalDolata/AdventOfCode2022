@@ -17,6 +17,10 @@ stream_for_day! = fn day ->
 
   File.stream!("AdventOfCode/input/#{day}.txt")
 end
+
+file_for_day! = fn day ->
+  stream_for_day!.(day) |> Enum.join("")
+end
 ```
 
 ## Day 1
@@ -778,4 +782,185 @@ end)
 |> Enum.map(&Enum.join(&1, ""))
 |> Enum.join("\n")
 |> IO.puts()
+```
+
+## Day 11
+
+```elixir
+# Part 1
+monkeys =
+  file_for_day!.(11)
+  |> String.split("\n\n")
+  |> Map.new(fn monkey_input ->
+    [monkey_name_line, starting_items_line, operration_line, test_line, true_line, false_line] =
+      monkey_input |> String.split("\n", trim: true) |> Enum.map(&String.trim(&1))
+
+    monkey_id =
+      monkey_name_line
+      |> String.trim_trailing(":")
+      |> String.trim_leading("Monkey ")
+      |> String.to_integer()
+
+    starting_items =
+      starting_items_line
+      |> String.trim_leading("Starting items: ")
+      |> String.split(", ")
+      |> Enum.map(&String.to_integer/1)
+
+    operation_string = operration_line |> String.trim_leading("Operation: new = ")
+    operation = fn old -> Code.eval_string(operation_string, old: old) |> elem(0) end
+
+    divisor = test_line |> String.trim_leading("Test: divisible by ") |> String.to_integer()
+
+    true_monkey =
+      true_line |> String.trim_leading("If true: throw to monkey ") |> String.to_integer()
+
+    false_monkey =
+      false_line |> String.trim_leading("If false: throw to monkey ") |> String.to_integer()
+
+    {monkey_id,
+     %{
+       items: starting_items,
+       operation: operation,
+       divisor: divisor,
+       true_monkey: true_monkey,
+       false_monkey: false_monkey,
+       counter: 0
+     }}
+  end)
+
+[a, b] =
+  Enum.reduce(1..20, monkeys, fn _round, monkeys ->
+    Enum.reduce(0..(map_size(monkeys) - 1), monkeys, fn monkey_id, monkeys ->
+      Enum.reduce(monkeys[monkey_id].items, monkeys, fn _item, monkeys ->
+        current_monkey = monkeys[monkey_id]
+        {current_item, rest_of_items} = List.pop_at(current_monkey.items, 0)
+        monkeys = put_in(monkeys, [monkey_id, :items], rest_of_items)
+        monkeys = update_in(monkeys, [monkey_id, :counter], &(&1 + 1))
+
+        worry_level = floor(current_monkey.operation.(current_item) / 3)
+
+        pass_to_monkey_id =
+          if Integer.mod(worry_level, current_monkey.divisor) == 0 do
+            current_monkey.true_monkey
+          else
+            current_monkey.false_monkey
+          end
+
+        update_in(monkeys, [pass_to_monkey_id, :items], &(&1 ++ [worry_level]))
+      end)
+    end)
+  end)
+  |> Enum.map(&elem(&1, 1).counter)
+  |> Enum.sort(:desc)
+  |> Enum.take(2)
+
+a * b
+```
+
+```elixir
+# Part 2
+test_input = """
+Monkey 0:
+Starting items: 79, 98
+Operation: new = old * 19
+Test: divisible by 23
+  If true: throw to monkey 2
+  If false: throw to monkey 3
+
+Monkey 1:
+Starting items: 54, 65, 75, 74
+Operation: new = old + 6
+Test: divisible by 19
+  If true: throw to monkey 2
+  If false: throw to monkey 0
+
+Monkey 2:
+Starting items: 79, 60, 97
+Operation: new = old * old
+Test: divisible by 13
+  If true: throw to monkey 1
+  If false: throw to monkey 3
+
+Monkey 3:
+Starting items: 74
+Operation: new = old + 3
+Test: divisible by 17
+  If true: throw to monkey 0
+  If false: throw to monkey 1
+"""
+
+monkeys =
+  file_for_day!.(11)
+  |> String.split("\n\n")
+  |> Map.new(fn monkey_input ->
+    [monkey_name_line, starting_items_line, operration_line, test_line, true_line, false_line] =
+      monkey_input |> String.split("\n", trim: true) |> Enum.map(&String.trim(&1))
+
+    monkey_id =
+      monkey_name_line
+      |> String.trim_trailing(":")
+      |> String.trim_leading("Monkey ")
+      |> String.to_integer()
+
+    starting_items =
+      starting_items_line
+      |> String.trim_leading("Starting items: ")
+      |> String.split(", ")
+      |> Enum.map(&String.to_integer(&1))
+
+    operation_string = operration_line |> String.trim_leading("Operation: new = ")
+    operation = fn old -> Code.eval_string(operation_string, old: old) |> elem(0) end
+
+    divisor = test_line |> String.trim_leading("Test: divisible by ") |> String.to_integer()
+
+    true_monkey =
+      true_line |> String.trim_leading("If true: throw to monkey ") |> String.to_integer()
+
+    false_monkey =
+      false_line |> String.trim_leading("If false: throw to monkey ") |> String.to_integer()
+
+    {monkey_id,
+     %{
+       items: starting_items,
+       operation: operation,
+       divisor: divisor,
+       true_monkey: true_monkey,
+       false_monkey: false_monkey,
+       counter: 0
+     }}
+  end)
+
+lcm =
+  Enum.reduce(monkeys, 1, fn {_id, monkey}, lcm ->
+    lcm * monkey.divisor
+  end)
+
+[a, b] =
+  Enum.reduce(1..10000, monkeys, fn _round, monkeys ->
+    Enum.reduce(0..(map_size(monkeys) - 1), monkeys, fn monkey_id, monkeys ->
+      Enum.reduce(monkeys[monkey_id].items, monkeys, fn _item, monkeys ->
+        current_monkey = monkeys[monkey_id]
+        {current_item, rest_of_items} = List.pop_at(current_monkey.items, 0)
+        monkeys = put_in(monkeys, [monkey_id, :items], rest_of_items)
+        monkeys = update_in(monkeys, [monkey_id, :counter], &(&1 + 1))
+
+        worry_level = current_monkey.operation.(current_item)
+
+        pass_to_monkey_id =
+          if Integer.mod(worry_level, current_monkey.divisor) == 0 do
+            current_monkey.true_monkey
+          else
+            current_monkey.false_monkey
+          end
+
+        update_in(monkeys, [pass_to_monkey_id, :items], &(&1 ++ [Integer.mod(worry_level, lcm)]))
+      end)
+    end)
+  end)
+  |> Enum.map(&elem(&1, 1).counter)
+  |> Enum.sort(:desc)
+  |> Enum.take(2)
+
+a * b
 ```
